@@ -10,6 +10,7 @@ requires-python = ">=3.13"
 dependencies = [
     "openai-agents>=0.1.0",
     "python-dotenv>=1.1.1",
+    "weave>=0.51.56",
 ]
 
 [project.scripts]
