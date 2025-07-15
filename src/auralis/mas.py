@@ -3,7 +3,7 @@ from openai import AsyncOpenAI
 import weave
 from weave.integrations.openai_agents.openai_agents import WeaveTracingProcessor
 from dotenv import load_dotenv
-from auralis.models.models import CallContext , Summary , Insights
+from auralis.models.models import CallContext , Summary , Insights , FollowUp_Email , CRMEntry , CustomerProfile
 load_dotenv()
 import os
 import asyncio
@@ -37,7 +37,7 @@ config = RunConfig(
 weave.init("Auralis")
 # Set up tracing with Weave
 set_trace_processors([WeaveTracingProcessor()])
-transcript = f'''[00:00] Sales Rep: Hey Jordan, thanks for joining the call. Hope your week’s going well.
+test_transcript = f'''[00:00] Sales Rep: Hey Jordan, thanks for joining the call. Hope your week’s going well.
 
 [00:04] Jordan (Client): Thanks! It’s been a bit hectic — we’re closing Q2 targets and juggling a couple of tech vendor decisions.
 
@@ -81,6 +81,52 @@ transcript = f'''[00:00] Sales Rep: Hey Jordan, thanks for joining the call. Hop
 
 
  '''
+test_summary = Summary(
+    summary='Laura from TechNova is exploring tools to unify communication and task management for her distributed team. While she is interested in automation and integrations, she has concerns about vendor reliability, integration stability, and is hesitant to commit to long-term plans due to past negative experiences.',
+    keypoints=[
+        'Laura manages a distributed team using Slack, Trello, and Google Drive, but struggles with team visibility and accountability.',
+        'She is exploring centralized platforms but expressed skepticism about switching due to team resistance and disruption concerns.',
+        'Previous platforms failed to deliver on promised integrations, leading to broken workflows and loss of data.',
+        'Laura is concerned about vendor lock-in and has questions about long-term data ownership and exportability.',
+        'Their budget is limited to $3,000 annually, and she prefers a flexible, month-to-month pricing plan.',
+        'She’s interested in features like automated reporting, task assignment, and strong integration with Slack and Google Drive.',
+        'Security and compliance are important — she requested details on permission controls and audit logging.',
+        'Laura asked for a side-by-side competitor comparison and a formal security documentation pack before scheduling another discussion.'
+    ]
+)
+test_insights = Insights(
+    sentiment='neutral',
+    pain_points=[
+        'Lack of team visibility',
+        'Lack of accountability',
+        'Previous platforms failed to deliver on promised integrations, leading to broken workflows and loss of data'
+    ],
+    objections=[
+        'Team resistance to switching platforms',
+        'Disruption concerns related to platform migration',
+        'Vendor lock-in',
+        'Long-term data ownership and exportability'
+    ],
+    intents=[
+        'Unify communication and task management',
+        'Automated reporting',
+        'Task assignment',
+        'Centralized platform adoption'
+    ],
+    risks=[
+        'Vendor reliability',
+        'Integration stability',
+        'Hesitancy to commit to long-term plans'
+    ],
+    integrations=['Slack', 'Trello', 'Google Drive'],
+    sales_stage='Technical evaluation',
+    next_steps=[
+        'Provide a side-by-side competitor comparison',
+        'Provide a formal security documentation pack',
+        'Schedule another discussion'
+    ]
+)
+
 # Define the summarizer instructions
 def summarizer_instructions( context : RunContextWrapper[CallContext], agent : Agent[CallContext] )-> str:
     transcript = context.context.transcript
@@ -172,7 +218,105 @@ def insight_instructions( ctx : RunContextWrapper[CallContext], agent : Agent[Ca
    You are not a summarizer. You are a structured business analyst that reads text and derives actionable meaning. Your insights will power intelligent sales automation, CRM updates, and other downstream agents. Be precise, analytical, and grounded in the source information.
    Think step by step and plan for action
    Here is the summary {summary} and here are the keypoints{keypoints}
+
  '''
+def followup_instructions( ctx : RunContextWrapper[CallContext], agent : Agent[CallContext] )-> str:
+    summary = ctx.context.summary.summary
+    keypoints = ctx.context.summary.keypoints
+    insights = ctx.context.insights
+    email_address = ctx.context.customer_profile.email
+    customer_name = ctx.context.customer_profile.name
+    return f'''
+You are FollowUpSpecialist, an autonomous assistant responsible for generating thoughtful, personalized, and professional follow-up email after client discovery or sales calls.
+
+You operate inside a multi-agent system. Your job begins **after the InsightAgent has analyzed a call** and extracted structured insights including the client's goals, pain points, objections, integrations, and next steps. Based on these, you will compose a follow-up email that moves the conversation forward, addresses concerns, and helps the sales team convert leads.
+
+---
+
+## 🎯 Objective
+Your goal is to **write a professional follow-up email** that:
+- Recaps the key context from the conversation (without re-summarizing the full transcript).
+- Acknowledges the client’s pain points and goals in a natural tone.
+- Addresses any objections or risks if present.
+- Reinforces the value of the solution without being pushy.
+- Confirms or initiates the next steps suggested during the call.
+- Maintains a friendly, confident, and helpful tone.
+
+---
+
+## 🧠 Input You Will Receive
+You will be given insights object that will conatain the following fields:
+- `pain_points`: The specific problems the client is facing.
+- `intents`: What the client is trying to achieve or improve.
+- `objections`: Any concerns they expressed about budget, integration, or risk.
+- `risks`: Potential blockers or hesitations.
+- `integrations`: Platforms or tools they use or want to integrate.
+- `sales_stage`: Their current stage in the decision process.
+- `next_steps`: Concrete follow-up actions discussed in the call.
+- `sentiment`: The emotional tone (e.g., positive, neutral, skeptical).
+You will also receive Customer Email , Customer Name as well so that you can personalize the email.
+
+---
+
+## 📝 How to Write the Message
+1. Open with a warm greeting and mention appreciation for the call.
+2. Acknowledge one or two relevant pain points and goals.
+3. If `objections` or `risks` exist, address them empathetically and professionally.
+4. Mention helpful features aligned with their `intents` or `integrations`.
+5. Clearly confirm the `next_steps` in your message.
+6. Close with a friendly, helpful tone — never overly formal or overly casual.
+
+---
+
+## 📌 Guidelines
+- Be specific: Reference their situation using available inputs.
+- Be natural: Write like a professional sales rep who just had a real conversation.
+- Be concise: Keep the message to 1–3 short paragraphs.
+- Avoid over-selling: Let the value speak through alignment, not pressure.
+- Always respect objections and risks — don’t dismiss them.
+
+---
+
+## 🧪 Example (for reference only)
+> Hi Jordan,  
+> Thanks again for the engaging discussion today. I really appreciate your transparency about the challenges with instructor onboarding and your goal to centralize operations.  
+>  
+> I understand your concerns about relying on a contractor — and we’ll make sure any solution we propose fits smoothly with your existing tools like Canvas, Slack, and Airtable.  
+>  
+> As discussed, I’ll send over a detailed pricing breakdown and schedule a technical deep dive with your lead developer and data engineer. Let me know if there’s anything else I can prep in advance.  
+>  
+> Looking forward to next steps!  
+>  
+> Best,  
+> A2D Media
+
+---
+These are the insights we have received:{insights}
+Customer Email : {email_address}
+Customer Name : {customer_name}
+use this email address {email_address} in the output as receiver email 
+Remember: This message will be sent directly to the client and may influence their decision. Think like a sales advisor, act like a trusted partner, and write like a human.
+
+
+ '''
+@function_tool(name_override='Send_Followup_Email')
+def send_followup_email(to: str, subject: str, body: str) -> str:
+    """
+    Simulates sending a follow-up email.
+
+    Args:
+        to (str): Recipient's email address.
+        subject (str): Email subject.
+        body (str): Email body.
+
+    Returns:
+        str: Confirmation message.
+    """
+    print("📤 Simulating sending email...")
+    print(f"To: {to}")
+    print(f"Subject: {subject}")
+    print(f"Body:\n{body}")
+    return f"✅ Dummy email sent to {to} with subject: {subject}"
 summarizer_Agent = Agent(
     name = 'Transcript_Summarizer',
     instructions = summarizer_instructions,
@@ -182,15 +326,31 @@ summarizer_Agent = Agent(
 insight_specialist = Agent(
     name = 'Insight_Specialist',
     instructions = insight_instructions,
-    # output_type=Insights
+    output_type=Insights
 )
+
+followup_specialist = Agent(
+    name = 'FollowUp_Specialist',
+    instructions = followup_instructions,
+    output_type=FollowUp_Email,
+)
+user1 = CustomerProfile(
+    name = 'John Doe',
+    company = 'Acme Inc.',
+    role = 'CEO',
+    email = 'johndoe@example.com'
+)
+
+
 
 async def run_agent():
     ctx = CallContext(
-        transcript=transcript,
-        summary = Summary(summary='Jordan from Onyx Learning is seeking to consolidate their fragmented education platform. They are specifically struggling with instructor onboarding, class monitoring, and contractor dependency, and are interested in integrations, data export, and user management.', keypoints=['Jordan from Onyx Learning is evaluating solutions to centralize their hybrid education platform, which currently uses a mix of tools like Calendly, Airtable, and Zoom.', 'Their main pain points are instructor onboarding, class monitoring, and reliance on a contractor for a custom analytics dashboard.', "Jordan's goals include simplifying operations, improving onboarding, boosting visibility, and reducing dependency on their in-house contractor.", "Onyx Learning is interested in the platform's integrations with Canvas LMS and Slack, data export capabilities, and user management features.", 'Jordan requested a breakdown of modules and pricing tiers and wants to schedule a technical deep dive with their lead developer and data engineer.'])
+        transcript=test_transcript,
+        summary = test_summary,
+        insights=test_insights,
+        customer_profile=user1
     )
-    result = await Runner.run(starting_agent=insight_specialist , input='Gather insights from the provided summary ' , run_config= config , context = ctx)
+    result = await Runner.run(starting_agent=followup_specialist , input='Write the Follow up Email and send the email using the tool `send_followup_email` ' , run_config= config , context = ctx)
     print(result.final_output)
 
 asyncio.run(run_agent())
