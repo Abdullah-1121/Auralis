@@ -24,8 +24,8 @@ sheet = client.open("Auralis_ Leads_CRM").worksheet("Leads")
 # Function to save insights to Google Sheet
 @function_tool(name_override='Update_CRM')
 def save_to_sheet(
-    name: str = "",
-    email: str = "",
+    name: str ,
+    email: str ,
     sentiment: str = "",
     pain_points: List[str] = [],
     intents: List[str] = [],
@@ -35,6 +35,8 @@ def save_to_sheet(
     sales_stage: str = "",
     next_steps: List[str] = []
 ):
+    print('PARAMS PASSING TO THE CRM')
+    print(name , email , sentiment , pain_points , intents , objections , risks , integrations , sales_stage , next_steps)
     # Append to the Google Sheet
     try:
      sheet.append_row([

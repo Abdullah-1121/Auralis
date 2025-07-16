@@ -1,4 +1,5 @@
-from agents import ModelSettings, OpenAIChatCompletionsModel, RunConfig, Runner, set_trace_processors , Agent , function_tool , RunContextWrapper
+from typing import Any
+from agents import AgentHooks, ModelSettings, OpenAIChatCompletionsModel, RunConfig, Runner, Tool, set_trace_processors , Agent , function_tool , RunContextWrapper
 from openai import AsyncOpenAI
 import weave
 from weave.integrations.openai_agents.openai_agents import WeaveTracingProcessor
@@ -38,48 +39,33 @@ config = RunConfig(
 weave.init("Auralis")
 # Set up tracing with Weave
 set_trace_processors([WeaveTracingProcessor()])
-test_transcript = f'''[00:00] Sales Rep: Hey Jordan, thanks for joining the call. Hope your week’s going well.
+test_transcript = f'''[00:00] Sales Rep: Hi Alex, thanks for making time today. How are things going?
 
-[00:04] Jordan (Client): Thanks! It’s been a bit hectic — we’re closing Q2 targets and juggling a couple of tech vendor decisions.
+[00:03] Alex (Client): Honestly, not great. I’m frustrated. We’ve been facing the same issues for months, and nothing’s improved.
 
-[00:10] Sales Rep: Makes sense. Well, I’d love to understand what you’re evaluating and see if we can be a fit.
+[00:09] Sales Rep: I’m really sorry to hear that. Can you tell me more about what’s been happening?
 
-[00:16] Jordan: Sure. I lead IT ops at Onyx Learning. We run a hybrid education platform for enterprise clients — about 120 instructors, 10K learners per year. Our operations rely heavily on scheduling, virtual classrooms, and engagement analytics.
+[00:12] Alex: Your platform constantly crashes during peak hours. Our agents can’t log in, data gets lost, and our clients are angry. We reported this three times and were promised fixes — but here we are.
 
-[00:33] Sales Rep: Awesome. What are you currently using to manage all of that?
+[00:24] Sales Rep: I understand that’s unacceptable. I can escalate this personally. Is the crash related to usage spikes or a specific feature?
 
-[00:36] Jordan: A mix. For scheduling we use Calendly + Airtable, Zoom for virtual classes, and a custom analytics dashboard built by a contractor. But it’s fragile. Syncing between tools often breaks. No central control panel, and onboarding new instructors is slow.
+[00:30] Alex: We think it’s usage load — it happens every Monday and Friday morning, which is when our customer support is busiest.
 
-[00:53] Sales Rep: Sounds like a lot of moving parts. What’s the biggest friction point?
+[00:38] Sales Rep: Got it. That sounds like a scalability issue. Anything else that’s impacting your operations?
 
-[00:57] Jordan: Honestly — instructor onboarding and class monitoring. We can’t track real-time engagement unless they manually upload attendance. Also, support escalations aren’t centralized — instructors email different teams.
+[00:43] Alex: Yeah — the reporting dashboard is inaccurate. Numbers don’t match what we pull from our internal systems. It’s throwing off weekly reviews and decisions.
 
-[01:10] Sales Rep: Got it. And is it fair to say your goals are: simplify operations, improve onboarding, and boost visibility?
+[00:52] Sales Rep: That’s a major concern. Are you currently syncing with any external data sources?
 
-[01:18] Jordan: Yep. Also, I’d love to reduce dependency on our in-house contractor — he’s been freelancing, and we had an outage last month that took hours to diagnose.
+[00:56] Alex: Just Google Sheets via API, and we use Microsoft Teams internally. But we need more reliable integrations — and I’m not confident anymore.
 
-[01:28] Sales Rep: Ouch. Totally understand. Our platform centralizes scheduling, video, onboarding, and analytics — and we’ve built-in real-time instructor dashboards and automated attendance capture.
+[01:04] Sales Rep: Understood. I’d like to offer a 1:1 session with our lead engineer to diagnose the performance issue. Would that be okay?
 
-[01:42] Jordan: That’s interesting. Does it integrate with our internal Slack channels and Canvas LMS?
+[01:09] Alex: Fine. But this is the last chance. If this doesn’t get resolved, we’re switching platforms.
 
-[01:47] Sales Rep: We have native Canvas LMS integration and Slack workflows via webhook. I can walk you through that.
+[01:14] Sales Rep: I appreciate your honesty. I’ll get the engineer looped in and send the session details by end of day.
 
-[01:55] Jordan: Nice. Also, do you support data export to our data lake?
-
-[01:59] Sales Rep: Yes — we support nightly syncs via secure S3 delivery or REST API pulls.
-
-[02:04] Jordan: Great. And in terms of user management, how do you handle access roles for instructors vs. admins?
-
-[02:11] Sales Rep: Role-based permissions are baked in — fully customizable. We also support SCIM for identity syncing with Okta or Azure AD.
-
-[02:20] Jordan: Solid. Can you send me a breakdown of all modules and the pricing tiers?
-
-[02:25] Sales Rep: Absolutely. Also — we’re doing early adopter onboarding for Q3 with extended support. You’d qualify based on your size.
-
-[02:32] Jordan: Sounds good. Can we also schedule a technical deep dive next week? I’d like to include our lead dev and data engineer.
-
-[02:38] Sales Rep: Yes, I’ll send a few time slots. Thanks, Jordan!
-
+[01:18] Alex: Please do.
 
  '''
 test_summary = Summary(
@@ -329,7 +315,69 @@ Here’s the data to pass:
 ✅ Leave fields blank if the data is missing — do not skip or raise errors.
 ✅ Your only responsibility is to structure and send the data to the CRM tool.
 """
+def Supervisor_Agent_instructions(ctx: RunContextWrapper[CallContext], agent: Agent[CallContext]) -> str:
+    transcript = ctx.context.transcript
+    customer_details = ctx.context.customer_profile.name
+    customer_email = ctx.context.customer_profile.email
+    customer_company = ctx.context.customer_profile.company
+    return f'''You are Auralis Supervisor, an autonomous and reliable AI orchestrator designed to analyze sales or discovery calls and guide downstream processes with precision.
 
+## 🎯 Objective
+Your role is to coordinate a specialized team of intelligent agents that each perform a step in a structured pipeline to process a sales call — from raw transcript to CRM integration. You ensure the correct **sequence**, **data flow**, and **tool usage**.
+
+Your primary goal is to extract business-critical data from a call transcript and deliver a fully processed, actionable set of outputs including:
+- A structured call summary
+- Actionable business insights
+- A personalized follow-up email
+- CRM update record
+
+## 🧑‍💼 Persona
+You act as a senior operations manager with a deep understanding of AI agents and structured automation workflows. You do not perform any domain-specific analysis yourself — instead, you delegate those tasks to your agents.
+
+You are thoughtful, logical, and task-driven.
+
+## 🛠️ Your Team of Tools (Specialized Agents)
+
+You have access to the following tools, which must be used in **exact sequence**:
+
+1. **SummarizerAgent**  
+   - Transforms raw transcript into structured summary & keypoints
+   
+
+2. **InsightAgent**  
+   - Extracts detailed business insights (pain points, goals, risks, etc.) from summary/keypoints
+   
+
+3. **FollowUpAgent**  
+   - Writes a professional follow-up email based on summary & insights
+   
+
+4. **CRMFormatterAgent**  
+   - Updates the CRM with the useful insights to be needed by the sales team
+   
+
+## 📋 Workflow Rules
+
+You must always:
+1. Begin by calling the **SummarizerAgent** with the transcript from context.
+2. Once the summary is returned, call the **InsightAgent**.
+3. With both summary and insights in context, call the **FollowUpAgent** to generate the email.
+4. Lastly, call the **CRMFormatterAgent** to create and store the CRM record.
+
+Each agent depends on the output of the previous one. Wait for each tool's response before continuing.
+
+Do not perform tasks manually. Always use the correct tool agent.
+
+## 🧠 Thinking Guidelines
+
+- Be disciplined in following the correct agent sequence.
+- Never skip or combine agent steps.
+- Rely on the context — do not hallucinate any input.
+- If a tool fails, retry once. If it fails again, halt and report.
+
+Here is the transcript to summarize : {transcript}
+and here is the customer details you will need in a tool call  : name = {customer_details}, email = {customer_email}, company = {customer_company}
+ '''
 @function_tool(name_override='Send_Followup_Email')
 def send_followup_email(to: str, subject: str, body: str) -> str:
     """
@@ -348,22 +396,51 @@ def send_followup_email(to: str, subject: str, body: str) -> str:
     print(f"Subject: {subject}")
     print(f"Body:\n{body}")
     return f"✅ Dummy email sent to {to} with subject: {subject}"
+# Defining Agent LifeCycle Hooks
+class Custom_agent_hooks(AgentHooks):
+    async def on_start(self, context:RunContextWrapper[CallContext], agent:Agent[CallContext]):
+        print('\n \n [DEBUG] -----------------------SUPERVISOR_AGENT STARTED-----------------------')
+    async def on_tool_start(self , context: RunContextWrapper[CallContext],agent: Agent[CallContext] , tool: Tool):
+        print(f'\n \n [DEBUG] -----------------------{tool.name} TOOL STARTED-----------------------')
+    async def on_tool_end(self, context: RunContextWrapper[CallContext],agent: Agent[CallContext] , tool: Tool , result:str):
+        print(f'\n \n [DEBUG] -----------------------{tool.name} TOOL ENDED-----------------------')
+        print(f'\n \n[DEBUG] TOOL RESULT : {result}')
+        print(f'\n \n[DEBUG] RESULT TYPE : {type(result)}')
+        if tool.name == 'Summarize_Transcript':
+            context.context.summary = result
+        elif tool.name == 'Extract_Insights':
+            context.context.insights = result
+        elif tool.name == 'Send_Followup_Email':
+            context.context.follow_up = result
+        elif tool.name == 'Update_CRM':
+            print('CRM UPDATED')
+    async def on_end(self, context: RunContextWrapper[CallContext], agent: Agent[CallContext]):
+        print('\n \n [DEBUG] -----------------------SUPERVISOR_AGENT ENDED-----------------------')        
+
+            
+    async def on_end(self, context: RunContextWrapper[CallContext], agent: Agent[CallContext], output : Any):
+        print('\n \n [DEBUG] -----------------------SUPERVISOR_AGENT ENDED-----------------------')
+
+agent_hooks = Custom_agent_hooks()        
 summarizer_Agent = Agent(
     name = 'Transcript_Summarizer',
     instructions = summarizer_instructions,
-    output_type=Summary
+    output_type=Summary,
+    model = model
 )
 
 insight_specialist = Agent(
     name = 'Insight_Specialist',
     instructions = insight_instructions,
-    output_type=Insights
+    output_type=Insights,
+    model = model
 )
 
 followup_specialist = Agent(
     name = 'FollowUp_Specialist',
     instructions = followup_instructions,
     output_type=FollowUp_Email,
+    model = model
 )
 CRM_Agent = Agent(
     name = 'CRM_Agent',
@@ -371,25 +448,53 @@ CRM_Agent = Agent(
     tools = [save_to_sheet],
     model_settings=ModelSettings(
         tool_choice="required" # Always call the tool
-    )
-)
-user1 = CustomerProfile(
-    name = 'John Doe',
-    company = 'Acme Inc.',
-    role = 'CEO',
-    email = 'johndoe@example.com'
+    ),
+    model = model,
+    hooks=agent_hooks
 )
 
+user1 = CustomerProfile(
+    name = 'Alex Gomez',
+    company = 'FooBar',
+    role = 'Team Lead',
+    email = 'Alex@FooBar.com'
+)
+
+
+
+Sales_Supervisor = Agent(
+   name = 'Sales_Supervisor',
+   instructions = Supervisor_Agent_instructions,
+   tools = [
+       summarizer_Agent.as_tool(
+           tool_name = 'SummarizerAgent',
+           tool_description='Summarizes a sales call transcript into a structured summary and keypoints'
+       ),
+       insight_specialist.as_tool(
+           tool_name = 'InsightAgent',
+           tool_description='Extracts detailed business insights from a sales call summary'
+       ),
+       followup_specialist.as_tool(
+           tool_name = 'FollowUpAgent',
+           tool_description='Writes a professional follow-up email based on summary & insights'
+       ),
+       CRM_Agent.as_tool(
+           tool_name = 'CRMFormatterAgent',
+           tool_description='Updates the CRM with the useful insights to be needed by the sales team'
+       )
+   ] ,
+   hooks=agent_hooks
+
+)           
+    
 
 
 async def run_agent():
     ctx = CallContext(
         transcript=test_transcript,
-        summary = test_summary,
-        insights=test_insights,
         customer_profile=user1
     )
-    result = await Runner.run(starting_agent=CRM_Agent , input='Push the data into CRM using the tool , save_to_sheet ' , run_config= config , context = ctx)
+    result = await Runner.run(starting_agent=Sales_Supervisor , input='Please analyze the new call transcript, generate a structured summary, extract actionable business insights, write a follow-up email for the client, and prepare the CRM record for storage.Begin by summarizing the transcript.' , run_config= config , context = ctx)
     print(result.final_output)
 
 asyncio.run(run_agent())
