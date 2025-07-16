@@ -40,5 +40,5 @@ class CallContext(BaseModel):
     summary: Summary = Field( description="The summary of the call" , default_factory=Summary)
     insights: Insights = Field(description="The insights of the call" , default_factory=Insights)
     follow_up: FollowUp_Email   = Field(description="The follow up of the call" , default_factory=FollowUp_Email)
-    crm_entry: CRMEntry  = Field(description="The crm entry of the call", default_factory=CRMEntry) 
+     
         

@@ -1,4 +1,4 @@
-from agents import OpenAIChatCompletionsModel, RunConfig, Runner, set_trace_processors , Agent , function_tool , RunContextWrapper
+from agents import ModelSettings, OpenAIChatCompletionsModel, RunConfig, Runner, set_trace_processors , Agent , function_tool , RunContextWrapper
 from openai import AsyncOpenAI
 import weave
 from weave.integrations.openai_agents.openai_agents import WeaveTracingProcessor
@@ -7,6 +7,7 @@ from auralis.models.models import CallContext , Summary , Insights , FollowUp_Em
 load_dotenv()
 import os
 import asyncio
+from auralis.tools.tools import save_to_sheet
 gemini_api_key = os.getenv("GEMINI_API_KEY") 
 
 
@@ -299,6 +300,36 @@ Remember: This message will be sent directly to the client and may influence the
 
 
  '''
+def crm_agent_instructions(ctx: RunContextWrapper[CallContext], agent: Agent[CallContext]) -> str:
+    customer = ctx.context.customer_profile
+    insights = ctx.context.insights
+
+    return f"""
+You are a CRM Agent. Your job is to populate the CRM system with structured sales data from a customer call.
+
+The data you need comes from two sources:
+1. `customer` — containing personal details like name and email.
+2. `insights` — containing sales insights like pain points, intent, risks, and more.
+
+Use the `save_to_sheet` tool to push this data to the CRM.
+
+Here’s the data to pass:
+- name = {customer.name or ""}
+- email = {customer.email or ""}
+- sentiment = {insights.sentiment or ""}
+- pain_points = {insights.pain_points or []}
+- intents = {insights.intents or []}
+- objections = {insights.objections or []}
+- risks = {insights.risks or []}
+- integrations = {insights.integrations or []}
+- sales_stage = {insights.sales_stage or ""}
+- next_steps = {insights.next_steps or []}
+
+✅ Call the tool directly with these arguments.
+✅ Leave fields blank if the data is missing — do not skip or raise errors.
+✅ Your only responsibility is to structure and send the data to the CRM tool.
+"""
+
 @function_tool(name_override='Send_Followup_Email')
 def send_followup_email(to: str, subject: str, body: str) -> str:
     """
@@ -334,6 +365,14 @@ followup_specialist = Agent(
     instructions = followup_instructions,
     output_type=FollowUp_Email,
 )
+CRM_Agent = Agent(
+    name = 'CRM_Agent',
+    instructions = crm_agent_instructions,
+    tools = [save_to_sheet],
+    model_settings=ModelSettings(
+        tool_choice="required" # Always call the tool
+    )
+)
 user1 = CustomerProfile(
     name = 'John Doe',
     company = 'Acme Inc.',
@@ -350,7 +389,7 @@ async def run_agent():
         insights=test_insights,
         customer_profile=user1
     )
-    result = await Runner.run(starting_agent=followup_specialist , input='Write the Follow up Email and send the email using the tool `send_followup_email` ' , run_config= config , context = ctx)
+    result = await Runner.run(starting_agent=CRM_Agent , input='Push the data into CRM using the tool , save_to_sheet ' , run_config= config , context = ctx)
     print(result.final_output)
 
 asyncio.run(run_agent())
