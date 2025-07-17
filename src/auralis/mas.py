@@ -513,5 +513,6 @@ async def run_agent():
     print(ctx.insights)
     print('\n \n-----------------------EMAIL-----------------------')
     print(ctx.follow_up)
+    return ctx
 
-asyncio.run(run_agent())
+# asyncio.run(run_agent())
