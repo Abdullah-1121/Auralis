@@ -1,3 +1,4 @@
+import json
 from typing import Any
 from agents import AgentHooks, ModelSettings, OpenAIChatCompletionsModel, RunConfig, Runner, Tool, set_trace_processors , Agent , function_tool , RunContextWrapper
 from openai import AsyncOpenAI
@@ -406,13 +407,23 @@ class Custom_agent_hooks(AgentHooks):
         print(f'\n \n [DEBUG] -----------------------{tool.name} TOOL ENDED-----------------------')
         print(f'\n \n[DEBUG] TOOL RESULT : {result}')
         print(f'\n \n[DEBUG] RESULT TYPE : {type(result)}')
-        if tool.name == 'Summarize_Transcript':
-            context.context.summary = result
-        elif tool.name == 'Extract_Insights':
-            context.context.insights = result
-        elif tool.name == 'Send_Followup_Email':
-            context.context.follow_up = result
-        elif tool.name == 'Update_CRM':
+        if tool.name == 'SummarizerAgent':
+            print('SUMMARY UPDATED')
+            summary = json.loads(result)
+            email_obj = Summary(**summary)
+            context.context.summary = email_obj
+            print(type(email_obj))
+        elif tool.name == 'InsightAgent':
+            print('INSIGHTS UPDATED')
+            insight = json.loads(result)
+            insights_obj = Insights(**insight)
+            context.context.insights = insights_obj
+        elif tool.name == 'FollowUpAgent':
+            print('EMAIL UPDATED')
+            email = json.loads(result)
+            email_obj = FollowUp_Email(**email)
+            context.context.follow_up = email_obj
+        elif tool.name == 'CRMFormatterAgent':
             print('CRM UPDATED')
     async def on_end(self, context: RunContextWrapper[CallContext], agent: Agent[CallContext]):
         print('\n \n [DEBUG] -----------------------SUPERVISOR_AGENT ENDED-----------------------')        
@@ -496,5 +507,11 @@ async def run_agent():
     )
     result = await Runner.run(starting_agent=Sales_Supervisor , input='Please analyze the new call transcript, generate a structured summary, extract actionable business insights, write a follow-up email for the client, and prepare the CRM record for storage.Begin by summarizing the transcript.' , run_config= config , context = ctx)
     print(result.final_output)
+    print('\n \n-----------------------SUMMARY-----------------------')
+    print(ctx.summary)
+    print('\n \n-----------------------INSIGHTS-----------------------')
+    print(ctx.insights)
+    print('\n \n-----------------------EMAIL-----------------------')
+    print(ctx.follow_up)
 
 asyncio.run(run_agent())
