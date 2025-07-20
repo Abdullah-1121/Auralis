@@ -40,33 +40,34 @@ config = RunConfig(
 weave.init("Auralis")
 # Set up tracing with Weave
 set_trace_processors([WeaveTracingProcessor()])
-test_transcript = f'''[00:00] Sales Rep: Hi Alex, thanks for making time today. How are things going?
+test_transcript = f'''[00:00] Sales Rep: Hi Jordan, good to connect today. How are things on your end?
 
-[00:03] Alex (Client): Honestly, not great. I’m frustrated. We’ve been facing the same issues for months, and nothing’s improved.
+[00:03] Jordan (Client): Hey! Things are moving along. Nothing major, but I had a couple of small things I wanted to bring up.
 
-[00:09] Sales Rep: I’m really sorry to hear that. Can you tell me more about what’s been happening?
+[00:08] Sales Rep: Sure, I’m all ears. Let’s go through them.
 
-[00:12] Alex: Your platform constantly crashes during peak hours. Our agents can’t log in, data gets lost, and our clients are angry. We reported this three times and were promised fixes — but here we are.
+[00:10] Jordan: First, we noticed that the email notifications sometimes come in a bit late — like 10 to 15 minutes after the trigger event.
 
-[00:24] Sales Rep: I understand that’s unacceptable. I can escalate this personally. Is the crash related to usage spikes or a specific feature?
+[00:16] Sales Rep: Got it. That delay might be due to queue processing. I’ll have the team check the logs and see if there’s any pattern.
 
-[00:30] Alex: We think it’s usage load — it happens every Monday and Friday morning, which is when our customer support is busiest.
+[00:21] Jordan: Thanks. It’s not critical, but worth looking into.
 
-[00:38] Sales Rep: Got it. That sounds like a scalability issue. Anything else that’s impacting your operations?
+[00:24] Sales Rep: Absolutely. What else?
 
-[00:43] Alex: Yeah — the reporting dashboard is inaccurate. Numbers don’t match what we pull from our internal systems. It’s throwing off weekly reviews and decisions.
+[00:26] Jordan: The mobile app interface — a few of our team members mentioned that the icons aren’t very intuitive, especially in the settings section.
 
-[00:52] Sales Rep: That’s a major concern. Are you currently syncing with any external data sources?
+[00:33] Sales Rep: That’s useful feedback. We’ve been planning some UI improvements, so I’ll pass that on to the design team.
 
-[00:56] Alex: Just Google Sheets via API, and we use Microsoft Teams internally. But we need more reliable integrations — and I’m not confident anymore.
+[00:38] Jordan: Perfect. Everything else is smooth, honestly. Just small things.
 
-[01:04] Sales Rep: Understood. I’d like to offer a 1:1 session with our lead engineer to diagnose the performance issue. Would that be okay?
+[00:41] Sales Rep: That’s good to hear. We’ll aim to iron those out. Anything you need help with immediately?
 
-[01:09] Alex: Fine. But this is the last chance. If this doesn’t get resolved, we’re switching platforms.
+[00:45] Jordan: Nope, nothing urgent. Just keep me posted on the email delay thing.
 
-[01:14] Sales Rep: I appreciate your honesty. I’ll get the engineer looped in and send the session details by end of day.
+[00:48] Sales Rep: Will do. I’ll follow up by tomorrow with what we find.
 
-[01:18] Alex: Please do.
+[00:51] Jordan: Sounds great. Thanks!
+
 
  '''
 test_summary = Summary(
@@ -465,10 +466,10 @@ CRM_Agent = Agent(
 )
 
 user1 = CustomerProfile(
-    name = 'Alex Gomez',
+    name = 'Jordan Smith',
     company = 'FooBar',
-    role = 'Team Lead',
-    email = 'Alex@FooBar.com'
+    role = 'Lead Sales Representative',
+    email = 'Jordan@FooBar.com'
 )
 
 
