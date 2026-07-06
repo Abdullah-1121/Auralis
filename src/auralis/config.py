@@ -48,6 +48,21 @@ class Settings(BaseSettings):
     # HubSpot adapter (stage 3)
     hubspot_access_token: str = ""
 
+    # ── Notifications (optional) ───────────────────────────────────────────
+    # Slack incoming-webhook URL. Empty = notifications silently skipped.
+    slack_webhook_url: str = ""
+    # Base URL used when building links back to this app (Slack buttons etc.)
+    public_base_url: str = "http://127.0.0.1:8010"
+
+    # ── Outbound email (optional) ──────────────────────────────────────────
+    # Empty username/password = approval still works, dispatch is skipped
+    # and stated on the record (email_status=skipped) — never silent.
+    smtp_host: str = "smtp.gmail.com"
+    smtp_port: int = 587
+    smtp_username: str = ""
+    smtp_password: str = ""
+    smtp_from_name: str = "Auralis"
+
     # ── App ────────────────────────────────────────────────────────────────
     app_env: str = "development"
     allowed_origins: str = "*"  # comma-separated; tighten in production

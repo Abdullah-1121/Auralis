@@ -186,6 +186,19 @@ def test_step_retries_then_succeeds(happy_steps, monkeypatch):
     assert record.status == CallStatus.DONE
 
 
+def test_slack_failure_does_not_fail_the_call(happy_steps, monkeypatch):
+    async def broken_notify(record):
+        raise RuntimeError("Slack webhook returned 500")
+
+    monkeypatch.setattr(runner.notify, "notify_call_done", broken_notify)
+
+    call_id = db.create_call(TRANSCRIPT, CUSTOMER)
+    _run(call_id)
+
+    record = db.get_call(call_id)
+    assert record.status == CallStatus.DONE  # notification is best-effort
+
+
 def test_crm_failure_does_not_fail_the_call(happy_steps, monkeypatch):
     class ExplodingCRM:
         def write_lead(self, customer, insights):

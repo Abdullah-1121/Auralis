@@ -4,16 +4,21 @@ read. All real behavior lives in pipeline/, agents/, crm/, store/.
 """
 
 import asyncio
+import json
 import logging
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import HTMLResponse, StreamingResponse
 
+from auralis import mailer
+from auralis.api.ui import UI_HTML
 from auralis.config import get_settings
 from auralis.models import (
     CallListItem,
     CallRecord,
     CallStatus,
+    EmailStatus,
     SubmitCallRequest,
     SubmitCallResponse,
 )
@@ -82,8 +87,11 @@ async def list_calls(limit: int = 50) -> list[CallListItem]:
 
 @app.post("/calls/{call_id}/approve-followup")
 async def approve_followup(call_id: str) -> dict:
-    """Human-in-the-loop gate: mark the drafted follow-up as approved.
-    (Actual email dispatch is stage 3 — approval is the contract for it.)"""
+    """Human-in-the-loop gate: approve the drafted follow-up AND dispatch it.
+
+    Dispatch outcome is always stated on the record:
+    sent (SMTP accepted) / skipped (no mailer configured) / failed (SMTP error).
+    Approval itself succeeds regardless — the human's decision is recorded."""
     record = db.get_call(call_id)
     if record is None:
         raise HTTPException(status_code=404, detail=f"No call with id {call_id}")
@@ -93,7 +101,81 @@ async def approve_followup(call_id: str) -> dict:
             detail=f"Call {call_id} has no follow-up draft yet (status: {record.status.value})",
         )
     db.set_followup_approved(call_id)
-    return {"call_id": call_id, "followup_approved": True}
+
+    if not mailer.is_configured():
+        db.set_email_status(call_id, EmailStatus.SKIPPED)
+        return {
+            "call_id": call_id,
+            "followup_approved": True,
+            "email_status": EmailStatus.SKIPPED.value,
+            "detail": "Approved. No SMTP credentials configured, so nothing was sent.",
+        }
+    try:
+        await asyncio.to_thread(mailer.send_followup, record.followup)
+        db.set_email_status(call_id, EmailStatus.SENT)
+        return {
+            "call_id": call_id,
+            "followup_approved": True,
+            "email_status": EmailStatus.SENT.value,
+            "detail": f"Sent to {record.followup.receiver_email}.",
+        }
+    except Exception as exc:
+        logger.exception("Call %s: email dispatch failed", call_id)
+        db.set_email_status(call_id, EmailStatus.FAILED)
+        return {
+            "call_id": call_id,
+            "followup_approved": True,
+            "email_status": EmailStatus.FAILED.value,
+            "detail": f"Approved, but dispatch failed: {exc}",
+        }
+
+
+@app.get("/calls/{call_id}/events")
+async def call_events(call_id: str) -> StreamingResponse:
+    """Server-Sent Events: pushes a JSON snapshot whenever the call's state
+    changes, so a UI can show live per-step progress without polling."""
+    if db.get_call(call_id) is None:
+        raise HTTPException(status_code=404, detail=f"No call with id {call_id}")
+
+    async def stream():
+        last = None
+        # Hard cap: a call takes ~1-3 min; 15 min means something is wrong.
+        for _ in range(15 * 60):
+            record = db.get_call(call_id)
+            snapshot = (
+                record.status.value,
+                record.failed_step,
+                record.crm_status.value,
+                record.email_status.value,
+                record.followup_approved,
+            )
+            if snapshot != last:
+                last = snapshot
+                payload = {
+                    "status": record.status.value,
+                    "failed_step": record.failed_step,
+                    "error": record.error,
+                    "crm_status": record.crm_status.value,
+                    "email_status": record.email_status.value,
+                    "followup_approved": record.followup_approved,
+                }
+                yield f"data: {json.dumps(payload)}\n\n"
+            if record.status in (CallStatus.DONE, CallStatus.FAILED):
+                break
+            await asyncio.sleep(1)
+
+    return StreamingResponse(
+        stream(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
+
+
+@app.get("/ui", response_class=HTMLResponse, include_in_schema=False)
+async def ui() -> HTMLResponse:
+    """Single-file demo dashboard: submit a transcript, watch the pipeline
+    live, review the grounding report and scorecard, approve the send."""
+    return HTMLResponse(UI_HTML)
 
 
 @app.get("/health")

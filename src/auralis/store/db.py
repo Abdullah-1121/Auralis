@@ -21,6 +21,7 @@ from auralis.models import (
     CallStatus,
     CRMStatus,
     CustomerProfile,
+    EmailStatus,
     FollowUpEmail,
     GroundingReport,
     Insights,
@@ -45,6 +46,7 @@ CREATE TABLE IF NOT EXISTS calls (
     followup_json      TEXT,
     scorecard_json     TEXT,
     followup_approved  INTEGER NOT NULL DEFAULT 0,
+    email_status       TEXT NOT NULL DEFAULT 'not_sent',
     crm_status         TEXT NOT NULL DEFAULT 'pending',
     created_at         TEXT NOT NULL,
     updated_at         TEXT NOT NULL
@@ -58,6 +60,10 @@ def _migrate(conn: sqlite3.Connection) -> None:
     for column in ("grounding_json", "scorecard_json"):
         if column not in existing:
             conn.execute(f"ALTER TABLE calls ADD COLUMN {column} TEXT")
+    if "email_status" not in existing:
+        conn.execute(
+            "ALTER TABLE calls ADD COLUMN email_status TEXT NOT NULL DEFAULT 'not_sent'"
+        )
     conn.commit()
 
 
@@ -162,6 +168,16 @@ def set_crm_status(call_id: str, crm_status: CRMStatus) -> None:
         conn.commit()
 
 
+def set_email_status(call_id: str, email_status: EmailStatus) -> None:
+    with _lock:
+        conn = _connect()
+        conn.execute(
+            "UPDATE calls SET email_status = ?, updated_at = ? WHERE call_id = ?",
+            (email_status.value, _now(), call_id),
+        )
+        conn.commit()
+
+
 def set_followup_approved(call_id: str) -> bool:
     with _lock:
         conn = _connect()
@@ -191,6 +207,7 @@ def _row_to_record(row: sqlite3.Row) -> CallRecord:
         followup=FollowUpEmail.model_validate_json(row["followup_json"]) if row["followup_json"] else None,
         scorecard=CallScorecard.model_validate_json(row["scorecard_json"]) if row["scorecard_json"] else None,
         followup_approved=bool(row["followup_approved"]),
+        email_status=EmailStatus(row["email_status"]),
         crm_status=CRMStatus(row["crm_status"]),
         created_at=datetime.fromisoformat(row["created_at"]),
         updated_at=datetime.fromisoformat(row["updated_at"]),

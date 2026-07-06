@@ -19,6 +19,7 @@ import logging
 import re
 from typing import Awaitable, Callable, TypeVar
 
+from auralis import notify
 from auralis.agents import steps as llm_steps
 from auralis.config import get_settings
 from auralis.crm.base import get_crm_adapter
@@ -192,3 +193,9 @@ async def process_call(call_id: str) -> None:
 
     db.set_status(call_id, CallStatus.DONE)
     logger.info("Call %s processed successfully", call_id)
+
+    # ── Notify (best-effort — a Slack hiccup never fails a finished call) ──
+    try:
+        await notify.notify_call_done(db.get_call(call_id))
+    except Exception:
+        logger.exception("Call %s: Slack notification failed", call_id)

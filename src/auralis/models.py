@@ -117,6 +117,15 @@ class CRMStatus(str, Enum):
     FAILED = "failed"        # adapter raised after retries — loud, never silent
 
 
+class EmailStatus(str, Enum):
+    """Dispatch state of the approved follow-up email."""
+
+    NOT_SENT = "not_sent"    # not approved yet, or approval predates dispatch
+    SENT = "sent"            # SMTP accepted the message
+    SKIPPED = "skipped"      # approved, but no mailer configured — stated
+    FAILED = "failed"        # SMTP raised — loud, never silent
+
+
 class CallRecord(BaseModel):
     """Full persisted state of one processed call — what GET /calls/{id} returns."""
 
@@ -134,6 +143,7 @@ class CallRecord(BaseModel):
     followup: Optional[FollowUpEmail] = None
     scorecard: Optional[CallScorecard] = None
     followup_approved: bool = False
+    email_status: EmailStatus = EmailStatus.NOT_SENT
 
     crm_status: CRMStatus = CRMStatus.PENDING
 
