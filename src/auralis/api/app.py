@@ -4,10 +4,12 @@ read. All real behavior lives in pipeline/, agents/, crm/, store/.
 """
 
 import asyncio
+import base64
 import json
 import logging
+import secrets
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, StreamingResponse
 
@@ -50,6 +52,25 @@ app.add_middleware(
 # Keep strong references to background tasks so the event loop never GCs a
 # running pipeline mid-flight.
 _background_tasks: set[asyncio.Task] = set()
+
+
+@app.middleware("http")
+async def basic_auth_guard(request: Request, call_next):
+    """Optional HTTP Basic auth for public deployments.
+
+    The approve endpoint dispatches real email — an open instance would let
+    anyone send from the configured account. /health stays open for the
+    platform's health checks."""
+    creds = get_settings().basic_auth
+    if creds and request.url.path != "/health":
+        expected = "Basic " + base64.b64encode(creds.encode()).decode()
+        provided = request.headers.get("authorization", "")
+        if not secrets.compare_digest(provided.encode(), expected.encode()):
+            return Response(
+                status_code=401,
+                headers={"WWW-Authenticate": 'Basic realm="auralis"'},
+            )
+    return await call_next(request)
 
 
 @app.post("/calls", response_model=SubmitCallResponse, status_code=202)

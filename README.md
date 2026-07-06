@@ -1,3 +1,15 @@
+---
+title: Auralis
+emoji: 📞
+colorFrom: blue
+colorTo: indigo
+sdk: docker
+app_port: 8000
+pinned: false
+license: mit
+short_description: Post-call sales intelligence with a grounding verifier
+---
+
 # Auralis — Post-Call Sales Intelligence
 
 **Transcript in → verified, human-approved follow-up out.**
@@ -149,7 +161,11 @@ docker build -t auralis .
 docker run -p 8000:8000 --env-file .env auralis
 ```
 
-Works as-is on Railway, Render, or Fly.io — set the environment variables from the table above and point `PUBLIC_BASE_URL` at your deployed URL so Slack links resolve.
+The live demo runs on **Hugging Face Spaces** (Docker Space, free tier — the YAML block at the top of this README is its config). It works the same on Railway, Render, or Fly.io. Wherever you deploy:
+
+- set the environment variables from the table above as secrets,
+- set `PUBLIC_BASE_URL` to the deployed URL so Slack links resolve,
+- **set `BASIC_AUTH=user:password`** — the approve endpoint sends real email; a public instance must not be open.
 
 ## Roadmap
 
