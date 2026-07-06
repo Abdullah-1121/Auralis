@@ -66,6 +66,10 @@ class Settings(BaseSettings):
     # ── App ────────────────────────────────────────────────────────────────
     app_env: str = "development"
     allowed_origins: str = "*"  # comma-separated; tighten in production
+    # "user:password" - when set, every route except /health requires HTTP
+    # Basic auth. Empty = open (local development). Set this on any public
+    # deployment: the approve endpoint sends real email from your account.
+    basic_auth: str = ""
 
     model_config = SettingsConfigDict(env_file=".env", case_sensitive=False)
 

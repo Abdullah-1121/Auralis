@@ -102,3 +102,18 @@ def test_ui_page_serves(client):
     resp = client.get("/ui")
     assert resp.status_code == 200
     assert "Auralis" in resp.text
+
+
+def test_basic_auth_locks_everything_but_health(client):
+    from auralis.config import get_settings
+
+    settings = get_settings()
+    settings.basic_auth = "demo:s3cret"
+    try:
+        assert client.get("/calls").status_code == 401
+        assert client.get("/ui").status_code == 401
+        assert client.get("/health").status_code == 200  # platform health checks
+        assert client.get("/calls", auth=("demo", "s3cret")).status_code == 200
+        assert client.get("/calls", auth=("demo", "wrong")).status_code == 401
+    finally:
+        settings.basic_auth = ""
