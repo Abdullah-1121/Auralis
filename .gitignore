@@ -12,5 +12,8 @@ wheels/
 # Secrets
 .env
 
+# Local database
+*.db
+
 # Credentials
 credentials.json
